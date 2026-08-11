@@ -448,6 +448,41 @@ export default function App() {
   const [isAutoRefreshDiagnostics, setIsAutoRefreshDiagnostics] = useState(false);
   const [autoRefreshCountdown, setAutoRefreshCountdown] = useState(30);
 
+  // Minimum Active Peers Threshold & Alert State
+  const [minActivePeersThreshold, setMinActivePeersThreshold] = useState<number>(40);
+  const [currentActivePeers, setCurrentActivePeers] = useState<number>(48);
+  const [peerAlertToast, setPeerAlertToast] = useState<{
+    visible: boolean;
+    activeCount: number;
+    threshold: number;
+    timestamp: string;
+    dismissed: boolean;
+  }>({
+    visible: false,
+    activeCount: 48,
+    threshold: 40,
+    timestamp: '',
+    dismissed: false,
+  });
+
+  // Monitor peer threshold and trigger operator alert toast when active peers fall below threshold
+  useEffect(() => {
+    if (currentActivePeers < minActivePeersThreshold) {
+      setPeerAlertToast({
+        visible: true,
+        activeCount: currentActivePeers,
+        threshold: minActivePeersThreshold,
+        timestamp: new Date().toLocaleTimeString(),
+        dismissed: false,
+      });
+    } else {
+      setPeerAlertToast((prev) => ({
+        ...prev,
+        visible: false,
+      }));
+    }
+  }, [currentActivePeers, minActivePeersThreshold]);
+
   const peerHealthHistory = [
     { time: '-60m', active: 42, total: 50, health: 96.0 },
     { time: '-55m', active: 44, total: 50, health: 97.5 },
@@ -461,7 +496,7 @@ export default function App() {
     { time: '-15m', active: 47, total: 50, health: 99.0 },
     { time: '-10m', active: 48, total: 50, health: 99.2 },
     { time: '-5m', active: 48, total: 50, health: 99.2 },
-    { time: 'Now', active: 48, total: 50, health: 99.2 },
+    { time: 'Now', active: currentActivePeers, total: 50, health: Math.min(100, Number(((currentActivePeers / 50) * 100).toFixed(1))) },
   ];
 
   // P2P Ping Benchmark State
@@ -3230,7 +3265,7 @@ services:
                           <div className="flex items-center gap-2 text-[11px] font-mono flex-wrap">
                             <div className="flex items-center gap-1.5 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200/80" title="Active P2P gossipsub connections. Trend over last 15m: +1 peer (+2.1%)">
                               <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0" />
-                              <span className="text-slate-800 font-bold">Active Peers</span>
+                              <span className="text-slate-800 font-bold">Active Peers ({currentActivePeers})</span>
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-extrabold">
                                 <ArrowUpRight className="w-3 h-3 text-emerald-600 stroke-[2.5]" />
                                 +1 (15m)
@@ -3255,6 +3290,104 @@ services:
                           </div>
                         </div>
 
+                        {/* P2P Threshold & Alert Config Bar */}
+                        <div className="p-3 bg-slate-900 text-white rounded-xl border border-slate-800 space-y-3 shadow-inner">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            {/* Threshold Setting */}
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <div className="flex items-center gap-1.5">
+                                <Bell className="w-4 h-4 text-amber-400" />
+                                <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                                  Min Active Peers Threshold:
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
+                                <button
+                                  onClick={() => setMinActivePeersThreshold((prev) => Math.max(5, prev - 1))}
+                                  className="w-6 h-6 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded text-slate-200 font-bold text-xs cursor-pointer"
+                                  title="Decrease minimum peer threshold"
+                                >
+                                  -
+                                </button>
+                                <input
+                                  type="number"
+                                  min={5}
+                                  max={50}
+                                  value={minActivePeersThreshold}
+                                  onChange={(e) => setMinActivePeersThreshold(Math.min(50, Math.max(5, parseInt(e.target.value) || 5)))}
+                                  className="w-12 text-center bg-slate-950 text-white font-mono font-bold text-xs py-0.5 rounded border border-slate-700 focus:outline-none focus:border-blue-500"
+                                />
+                                <button
+                                  onClick={() => setMinActivePeersThreshold((prev) => Math.min(50, prev + 1))}
+                                  className="w-6 h-6 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded text-slate-200 font-bold text-xs cursor-pointer"
+                                  title="Increase minimum peer threshold"
+                                >
+                                  +
+                                </button>
+                              </div>
+
+                              {/* Preset Pills */}
+                              <div className="flex items-center gap-1 text-[10px] font-mono">
+                                <span className="text-slate-400">Presets:</span>
+                                {[25, 35, 40, 45].map((preset) => (
+                                  <button
+                                    key={preset}
+                                    onClick={() => setMinActivePeersThreshold(preset)}
+                                    className={`px-2 py-0.5 rounded font-bold transition-all cursor-pointer ${
+                                      minActivePeersThreshold === preset
+                                        ? 'bg-blue-600 text-white border border-blue-400 shadow-2xs'
+                                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                                    }`}
+                                  >
+                                    {preset}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Live Status Badge */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              {currentActivePeers < minActivePeersThreshold ? (
+                                <span className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40 font-mono text-[11px] font-bold flex items-center gap-1.5 animate-pulse">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                                  ALERT TRIGGERED: {currentActivePeers} &lt; {minActivePeersThreshold} Min
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono text-[11px] font-bold flex items-center gap-1.5">
+                                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                                  HEALTHY: {currentActivePeers} ≥ {minActivePeersThreshold} Min
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Peer Simulation Quick Controls */}
+                          <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-[11px] flex-wrap">
+                            <div className="flex items-center gap-2 text-slate-400">
+                              <span>Simulate Active Peer Count:</span>
+                              <span className="font-mono font-bold text-white text-xs">{currentActivePeers} / 50</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <button
+                                onClick={() => setCurrentActivePeers(28)}
+                                className="px-2.5 py-1 bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-800 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                                title="Drop active peers to 28 to test threshold alert trigger"
+                              >
+                                <ArrowDownRight className="w-3 h-3 text-rose-400" />
+                                <span>Simulate Low Peer Drop (28)</span>
+                              </button>
+                              <button
+                                onClick={() => setCurrentActivePeers(48)}
+                                className="px-2.5 py-1 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 border border-emerald-800 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                                title="Reset active peers back to normal count (48)"
+                              >
+                                <RotateCcw className="w-3 h-3 text-emerald-400" />
+                                <span>Restore Peers (48)</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Sparkline Area Chart with Brush Zoom */}
                         <div className="h-48 w-full pt-1">
                           <ResponsiveContainer width="100%" height="100%">
@@ -3273,7 +3406,7 @@ services:
                                 tickLine={false}
                               />
                               <YAxis
-                                domain={[30, 55]}
+                                domain={[15, 55]}
                                 tick={{ fontSize: 10, fill: '#64748b' }}
                                 axisLine={{ stroke: '#cbd5e1' }}
                                 tickLine={false}
@@ -3403,6 +3536,19 @@ services:
                                 }}
                               />
                               <ReferenceLine y={50} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: 'Total Capacity (50)', fill: '#64748b', fontSize: 9, position: 'insideTopRight' }} />
+                              <ReferenceLine
+                                y={minActivePeersThreshold}
+                                stroke="#f43f5e"
+                                strokeDasharray="4 4"
+                                strokeWidth={1.5}
+                                label={{
+                                  value: `Min Threshold (${minActivePeersThreshold})`,
+                                  fill: '#e11d48',
+                                  fontSize: 10,
+                                  fontWeight: 'bold',
+                                  position: 'insideBottomLeft',
+                                }}
+                              />
                               <Area
                                 type="monotone"
                                 dataKey="active"
@@ -3429,7 +3575,9 @@ services:
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-200/70 text-center text-[11px] font-mono">
                           <div className="p-1.5 bg-white rounded-lg border border-slate-200">
                             <span className="text-[9px] text-slate-400 font-bold uppercase block">Current Active</span>
-                            <span className="font-extrabold text-blue-600">48 Peers</span>
+                            <span className={`font-extrabold ${currentActivePeers < minActivePeersThreshold ? 'text-rose-600 animate-pulse' : 'text-blue-600'}`}>
+                              {currentActivePeers} Peers
+                            </span>
                           </div>
                           <div className="p-1.5 bg-white rounded-lg border border-slate-200">
                             <span className="text-[9px] text-slate-400 font-bold uppercase block">60m Low</span>
@@ -4599,6 +4747,75 @@ console.log('Base Block:', block);`}
                   className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-2xs transition-colors flex items-center gap-1"
                 >
                   <span>View Node Status</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* FLOATING NOTIFICATION TOAST: MINIMUM ACTIVE PEERS THRESHOLD ALERT */}
+        {peerAlertToast.visible && !peerAlertToast.dismissed && (
+          <div className="fixed bottom-6 right-6 sm:bottom-6 sm:right-6 z-50 max-w-md w-full bg-slate-900/95 text-white p-4 rounded-2xl border-2 border-rose-500/80 shadow-2xl backdrop-blur-md space-y-3 animate-in fade-in slide-in-from-bottom-5 duration-300">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <div className="p-2 bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/40 shrink-0 mt-0.5">
+                  <AlertTriangle className="w-5 h-5 animate-bounce text-rose-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-extrabold text-white">Critical P2P Peer Alert</h4>
+                    <span className="px-1.5 py-0.5 bg-rose-500/20 text-rose-300 font-mono text-[9px] font-extrabold rounded border border-rose-500/40 uppercase">
+                      Low Active Peers
+                    </span>
+                  </div>
+                  <p className="text-[11.5px] text-slate-200 mt-1 leading-snug">
+                    Active peers (<span className="font-extrabold text-rose-400 font-mono">{peerAlertToast.activeCount}</span>) fell below configured threshold (<span className="font-extrabold text-amber-300 font-mono">{peerAlertToast.threshold}</span>).
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setPeerAlertToast((prev) => ({ ...prev, dismissed: true }))}
+                className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors shrink-0"
+                title="Dismiss notification"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 font-mono text-[10px] space-y-1">
+              <div className="flex justify-between text-slate-400">
+                <span>Current Active Peers:</span>
+                <span className="text-rose-400 font-extrabold">{peerAlertToast.activeCount} nodes</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Minimum Threshold:</span>
+                <span className="text-amber-400 font-bold">{peerAlertToast.threshold} nodes</span>
+              </div>
+              <div className="flex justify-between text-slate-400 pt-1 border-t border-slate-800">
+                <span>Status:</span>
+                <span className="text-rose-400 font-bold">P2P Mesh Under-Peered</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-1 text-xs">
+              <span className="text-[10px] text-slate-400">Triggered at {peerAlertToast.timestamp}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentActivePeers(48)}
+                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Restore Peers
+                </button>
+                <button
+                  onClick={() => {
+                    setIsDiagnosticsModalOpen(true);
+                    setPeerAlertToast((prev) => ({ ...prev, dismissed: true }));
+                  }}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Open Diagnostics</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
