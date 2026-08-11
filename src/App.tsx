@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { toPng } from 'html-to-image';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -28,6 +29,7 @@ import {
   Copy,
   Check,
   RefreshCw,
+  Camera,
   Play,
   Layers,
   Code2,
@@ -455,6 +457,8 @@ export default function App() {
   const [peerHealthScaleMode, setPeerHealthScaleMode] = useState<'linear' | 'log'>('linear');
   const [minActivePeersThreshold, setMinActivePeersThreshold] = useState<number>(40);
   const [currentActivePeers, setCurrentActivePeers] = useState<number>(48);
+  const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // Total Peer Capacity & Automated Reduction Notification State
   const [totalPeerCapacity, setTotalPeerCapacity] = useState<number>(50);
@@ -924,6 +928,29 @@ export default function App() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const capturePeerHealthScreenshot = async () => {
+    if (!chartContainerRef.current) return;
+    try {
+      setIsCapturingScreenshot(true);
+      const dataUrl = await toPng(chartContainerRef.current, {
+        cacheBust: true,
+        backgroundColor: '#f8fafc',
+        quality: 0.98,
+        pixelRatio: 2,
+      });
+      const link = document.createElement('a');
+      link.download = `peer-connection-health-${nodeNetwork}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Failed to capture chart screenshot:', err);
+    } finally {
+      setIsCapturingScreenshot(false);
+    }
   };
 
   const handleQuickAction = (action: 'restart' | 'logs' | 'clear_cache') => {
@@ -3390,7 +3417,7 @@ services:
                       </div>
 
                       {/* PEER CONNECTION HEALTH SPARKLINE CHART (LAST 60 MINUTES) */}
-                      <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200 space-y-3">
+                      <div ref={chartContainerRef} className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200 space-y-3">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2">
                           <div className="flex items-center gap-2">
                             <TrendingUp className="w-4 h-4 text-blue-600" />
@@ -3578,6 +3605,20 @@ services:
                             >
                               <DownloadCloud className="w-3.5 h-3.5 text-blue-600" />
                               <span>Export CSV</span>
+                            </button>
+
+                            <button
+                              onClick={capturePeerHealthScreenshot}
+                              disabled={isCapturingScreenshot}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 font-bold text-[10px] rounded-lg transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs font-mono disabled:opacity-50"
+                              title="Render and download current Peer Connection Health area chart as a high-resolution PNG screenshot for quick reporting"
+                            >
+                              {isCapturingScreenshot ? (
+                                <RefreshCw className="w-3.5 h-3.5 text-white animate-spin" />
+                              ) : (
+                                <Camera className="w-3.5 h-3.5 text-white" />
+                              )}
+                              <span>{isCapturingScreenshot ? 'Capturing...' : 'Capture Screenshot'}</span>
                             </button>
                           </div>
                         </div>
