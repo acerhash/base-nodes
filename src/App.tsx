@@ -3264,14 +3264,32 @@ services:
                             </span>
                           </div>
                           <div className="flex items-center gap-2 text-[11px] font-mono flex-wrap">
-                            <div className="flex items-center gap-1.5 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200/80" title="Active P2P gossipsub connections. Trend over last 15m: +1 peer (+2.1%)">
-                              <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0" />
-                              <span className="text-slate-800 font-bold">Active Peers ({currentActivePeers})</span>
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-extrabold">
-                                <ArrowUpRight className="w-3 h-3 text-emerald-600 stroke-[2.5]" />
-                                +1 (15m)
-                              </span>
-                            </div>
+                            {(() => {
+                              const peer15mVal = 47; // Baseline active peers 15 mins ago
+                              const peerDiff15m = currentActivePeers - peer15mVal;
+                              return (
+                                <div className="flex items-center gap-1.5 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200/80" title={`Active P2P gossipsub connections. 15m Trend: ${peerDiff15m > 0 ? `+${peerDiff15m}` : peerDiff15m} peers`}>
+                                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0" />
+                                  <span className="text-slate-800 font-bold">Active Peers ({currentActivePeers})</span>
+                                  {peerDiff15m > 0 ? (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-extrabold transition-all">
+                                      <ArrowUpRight className="w-3 h-3 text-emerald-600 stroke-[2.5]" />
+                                      +{peerDiff15m} (15m)
+                                    </span>
+                                  ) : peerDiff15m < 0 ? (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 border border-rose-300 text-rose-800 text-[10px] font-extrabold transition-all">
+                                      <ArrowDownRight className="w-3 h-3 text-rose-600 stroke-[2.5]" />
+                                      {peerDiff15m} (15m)
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-300 text-slate-700 text-[10px] font-extrabold transition-all">
+                                      <Minus className="w-3 h-3 text-slate-500 stroke-[2.5]" />
+                                      0 (15m)
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                             <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200" title="Configured maximum connection limit. Capacity remains stable at 50 max nodes">
                               <span className="w-2.5 h-0.5 bg-slate-500 shrink-0" />
                               <span className="text-slate-700 font-semibold">Total Capacity (50)</span>
@@ -3281,30 +3299,64 @@ services:
                               </span>
                             </div>
 
-                            {/* Y-Axis Scale Toggle Button (Linear vs Logarithmic) */}
-                            <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs font-mono">
-                              <span className="text-[10px] font-bold text-slate-500 px-1.5 uppercase">Y-Scale:</span>
+                            {/* Prominent Y-Axis Scale Toggle Button with Icon and Dynamic Text */}
+                            <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-300 shadow-xs font-mono">
+                              <button
+                                onClick={() => setPeerHealthScaleMode(prev => (prev === 'linear' ? 'log' : 'linear'))}
+                                className={`px-3 py-1 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs ${
+                                  peerHealthScaleMode === 'linear'
+                                    ? 'bg-blue-600 hover:bg-blue-700 text-white ring-1 ring-blue-700/20'
+                                    : 'bg-purple-600 hover:bg-purple-700 text-white ring-1 ring-purple-700/20'
+                                }`}
+                                title="Click to toggle Y-Axis between Linear and Logarithmic scale modes"
+                              >
+                                <BarChart3 className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
+                                <span>Scale: {peerHealthScaleMode === 'linear' ? 'Linear (Standard)' : 'Logarithmic (Log₁₀)'}</span>
+                                {peerHealthScaleMode === 'log' && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse shrink-0" />
+                                )}
+                              </button>
+
+                              <div className="flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200/80">
+                                <button
+                                  onClick={() => setPeerHealthScaleMode('linear')}
+                                  className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                                    peerHealthScaleMode === 'linear'
+                                      ? 'bg-blue-600 text-white shadow-2xs'
+                                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                                  }`}
+                                  title="Set Y-Axis to Linear Scale"
+                                >
+                                  <Sliders className="w-3 h-3" />
+                                  <span>Linear</span>
+                                </button>
+                                <button
+                                  onClick={() => setPeerHealthScaleMode('log')}
+                                  className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                                    peerHealthScaleMode === 'log'
+                                      ? 'bg-purple-600 text-white shadow-2xs'
+                                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                                  }`}
+                                  title="Set Y-Axis to Logarithmic Scale"
+                                >
+                                  <Sliders className="w-3 h-3" />
+                                  <span>Logarithmic</span>
+                                </button>
+                              </div>
+
+                              {/* Reset Scale Button */}
                               <button
                                 onClick={() => setPeerHealthScaleMode('linear')}
-                                className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md transition-all cursor-pointer ${
+                                disabled={peerHealthScaleMode === 'linear'}
+                                className={`px-2 py-0.5 text-[10px] font-extrabold rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
                                   peerHealthScaleMode === 'linear'
-                                    ? 'bg-blue-600 text-white shadow-2xs'
-                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                    ? 'text-slate-400 opacity-50 cursor-not-allowed bg-transparent'
+                                    : 'text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 shadow-2xs'
                                 }`}
-                                title="Set Y-Axis to Linear Scale"
+                                title="Reset Y-Axis scale to default Linear mode"
                               >
-                                Linear
-                              </button>
-                              <button
-                                onClick={() => setPeerHealthScaleMode('log')}
-                                className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md transition-all cursor-pointer ${
-                                  peerHealthScaleMode === 'log'
-                                    ? 'bg-purple-600 text-white shadow-2xs'
-                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                                }`}
-                                title="Set Y-Axis to Logarithmic Scale to amplify and visualize minor peer variance"
-                              >
-                                Logarithmic
+                                <RotateCcw className="w-3 h-3" />
+                                <span>Reset Scale</span>
                               </button>
                             </div>
 
