@@ -14,6 +14,7 @@ import {
   Tooltip,
   Legend,
   ReferenceLine,
+  ReferenceDot,
   Brush,
 } from 'recharts';
 import {
@@ -76,6 +77,8 @@ import {
   Trash2,
   FileText,
   Sparkles,
+  Flag,
+  Tag,
 } from 'lucide-react';
 
 export interface SnapshotInfo {
@@ -499,6 +502,65 @@ export default function App() {
     { time: '-5m', active: 48, total: 50, health: 99.2 },
     { time: 'Now', active: currentActivePeers, total: 50, health: Math.min(100, Number(((currentActivePeers / 50) * 100).toFixed(1))) },
   ];
+
+  // Peer Chart Custom Annotations / Flag Markers State
+  const [chartAnnotations, setChartAnnotations] = useState<Array<{
+    id: string;
+    time: string;
+    activeValue: number;
+    label: string;
+    type: 'maintenance' | 'anomaly' | 'flag';
+    timestamp: string;
+  }>>([
+    {
+      id: 'anno-init-1',
+      time: '-35m',
+      activeValue: 46,
+      label: 'Scheduled Node Restart',
+      type: 'maintenance',
+      timestamp: '22:15:00',
+    },
+    {
+      id: 'anno-init-2',
+      time: '-50m',
+      activeValue: 41,
+      label: 'BGP Route Flap Anomaly',
+      type: 'anomaly',
+      timestamp: '22:00:00',
+    },
+  ]);
+
+  const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
+  const [selectedAnnoTime, setSelectedAnnoTime] = useState<string>('Now');
+  const [newAnnoLabel, setNewAnnoLabel] = useState<string>('');
+  const [newAnnoType, setNewAnnoType] = useState<'maintenance' | 'anomaly' | 'flag'>('maintenance');
+
+  const handleAddAnnotation = (timePoint?: string) => {
+    const targetTime = timePoint || selectedAnnoTime || 'Now';
+    setSelectedAnnoTime(targetTime);
+    setNewAnnoLabel('');
+    setAnnotationModalOpen(true);
+  };
+
+  const handleSaveAnnotation = () => {
+    if (!newAnnoLabel.trim()) return;
+    const pointData = peerHealthHistory.find((p) => p.time === selectedAnnoTime) || peerHealthHistory[peerHealthHistory.length - 1];
+    const newAnno = {
+      id: `anno-${Date.now()}`,
+      time: selectedAnnoTime,
+      activeValue: pointData.active,
+      label: newAnnoLabel.trim(),
+      type: newAnnoType,
+      timestamp: new Date().toLocaleTimeString(),
+    };
+    setChartAnnotations((prev) => [...prev, newAnno]);
+    setAnnotationModalOpen(false);
+    setNewAnnoLabel('');
+  };
+
+  const handleRemoveAnnotation = (id: string) => {
+    setChartAnnotations((prev) => prev.filter((a) => a.id !== id));
+  };
 
   // P2P Ping Benchmark State
   const [isPingBenchmarkRunning, setIsPingBenchmarkRunning] = useState(false);
@@ -3361,6 +3423,15 @@ services:
                             </div>
 
                             <button
+                              onClick={() => handleAddAnnotation()}
+                              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white border border-amber-600 font-bold text-[10px] rounded-lg transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs font-mono"
+                              title="Click to add custom event annotation/flag marker to chart at a specific time point"
+                            >
+                              <Flag className="w-3.5 h-3.5 text-white" />
+                              <span>+ Add Marker</span>
+                            </button>
+
+                            <button
                               onClick={downloadPeerHealthCsv}
                               className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 hover:text-blue-600 border border-slate-200 hover:border-blue-300 font-bold text-[10px] rounded-lg transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs font-mono"
                               title="Download 60-minute peer connection health trend history as a CSV file for offline analysis"
@@ -3469,10 +3540,21 @@ services:
                           </div>
                         </div>
 
-                        {/* Sparkline Area Chart with Brush Zoom & Smooth Transition Animation */}
-                        <div className="h-48 w-full pt-1 transition-all duration-500 ease-in-out">
+                        {/* Sparkline Area Chart with Brush Zoom, Click-to-Annotate & Custom Flag Markers */}
+                        <div className="h-48 w-full pt-1 transition-all duration-500 ease-in-out cursor-crosshair relative group" title="Click anywhere on chart to add a custom Maintenance or Network Anomaly marker">
+                          <div className="absolute top-1 right-2 z-10 text-[9.5px] font-mono text-slate-400 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                            💡 Click point to annotate
+                          </div>
                           <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={peerHealthHistory} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                            <AreaChart
+                              data={peerHealthHistory}
+                              margin={{ top: 20, right: 10, left: -20, bottom: 0 }}
+                              onClick={(nextState) => {
+                                if (nextState && nextState.activeLabel) {
+                                  handleAddAnnotation(String(nextState.activeLabel));
+                                }
+                              }}
+                            >
                               <defs>
                                 <linearGradient id="peerActiveGradient" x1="0" y1="0" x2="0" y2="1">
                                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
@@ -3633,6 +3715,36 @@ services:
                                   position: 'insideBottomLeft',
                                 }}
                               />
+
+                              {/* Custom Flag/Annotation Lines & Markers */}
+                              {chartAnnotations.map((anno) => (
+                                <ReferenceLine
+                                  key={`anno-line-${anno.id}`}
+                                  x={anno.time}
+                                  stroke={anno.type === 'anomaly' ? '#f43f5e' : anno.type === 'maintenance' ? '#f59e0b' : '#3b82f6'}
+                                  strokeDasharray="3 3"
+                                  strokeWidth={1.5}
+                                  label={{
+                                    value: `🚩 ${anno.label}`,
+                                    fill: anno.type === 'anomaly' ? '#e11d48' : anno.type === 'maintenance' ? '#d97706' : '#2563eb',
+                                    fontSize: 9,
+                                    fontWeight: 'bold',
+                                    position: 'top',
+                                  }}
+                                />
+                              ))}
+                              {chartAnnotations.map((anno) => (
+                                <ReferenceDot
+                                  key={`anno-dot-${anno.id}`}
+                                  x={anno.time}
+                                  y={anno.activeValue}
+                                  r={5}
+                                  fill={anno.type === 'anomaly' ? '#ef4444' : anno.type === 'maintenance' ? '#f59e0b' : '#3b82f6'}
+                                  stroke="#ffffff"
+                                  strokeWidth={2}
+                                />
+                              ))}
+
                               <Area
                                 key={`area-${peerHealthScaleMode}`}
                                 type="monotone"
@@ -3658,6 +3770,85 @@ services:
                               />
                             </AreaChart>
                           </ResponsiveContainer>
+                        </div>
+
+                        {/* CUSTOM EVENT ANNOTATIONS / FLAG MARKERS TOOLBAR & LIST */}
+                        <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2.5 shadow-2xs">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              <Flag className="w-4 h-4 text-amber-500 shrink-0" />
+                              <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider font-mono">
+                                Custom Event Markers ({chartAnnotations.length})
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">
+                                (Click any point on chart to flag maintenance or network anomalies)
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 font-mono">
+                              <button
+                                onClick={() => handleAddAnnotation()}
+                                className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10px] rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                <Plus className="w-3 h-3 text-amber-600" />
+                                <span>Add Marker</span>
+                              </button>
+                              {chartAnnotations.length > 0 && (
+                                <button
+                                  onClick={() => setChartAnnotations([])}
+                                  className="px-2 py-1 text-slate-400 hover:text-rose-600 font-medium text-[10px] transition-all cursor-pointer flex items-center gap-1"
+                                  title="Clear all event markers"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>Clear All</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Active Markers Badges */}
+                          {chartAnnotations.length === 0 ? (
+                            <div className="text-[10.5px] font-mono text-slate-400 italic bg-slate-50 p-2 rounded-lg border border-dashed border-slate-200 text-center">
+                              No custom markers added yet. Click anywhere on the chart above to flag a maintenance event or network anomaly.
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {chartAnnotations.map((anno) => {
+                                const isAnomaly = anno.type === 'anomaly';
+                                const isMaint = anno.type === 'maintenance';
+                                return (
+                                  <div
+                                    key={anno.id}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-mono shadow-2xs transition-all ${
+                                      isAnomaly
+                                        ? 'bg-rose-50 border-rose-200 text-rose-900'
+                                        : isMaint
+                                        ? 'bg-amber-50 border-amber-200 text-amber-900'
+                                        : 'bg-blue-50 border-blue-200 text-blue-900'
+                                    }`}
+                                  >
+                                    {isAnomaly ? (
+                                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                                    ) : isMaint ? (
+                                      <Wrench className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                    ) : (
+                                      <Flag className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                    )}
+                                    <span className="font-extrabold">{anno.time}</span>
+                                    <span className="text-slate-300">|</span>
+                                    <span className="font-semibold">{anno.label}</span>
+                                    <span className="text-[10px] opacity-75 font-bold">({anno.activeValue} peers)</span>
+                                    <button
+                                      onClick={() => handleRemoveAnnotation(anno.id)}
+                                      className="ml-1 text-slate-400 hover:text-rose-600 p-0.5 rounded hover:bg-white/80 transition-colors cursor-pointer"
+                                      title="Remove marker"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-200/70 text-center text-[11px] font-mono">
@@ -4905,6 +5096,110 @@ console.log('Base Block:', block);`}
                 >
                   <span>Open Diagnostics</span>
                   <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ADD / EDIT CHART ANNOTATION MODAL */}
+        {annotationModalOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-amber-100 text-amber-700 rounded-xl">
+                    <Flag className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 text-sm">Add Event Marker / Flag</h3>
+                    <p className="text-[11px] text-slate-500 font-mono">Annotate Peer Connection Health Chart</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setAnnotationModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                {/* Time Point Selector */}
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Chart Time Point:</label>
+                  <select
+                    value={selectedAnnoTime}
+                    onChange={(e) => setSelectedAnnoTime(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono font-bold focus:outline-none focus:border-blue-500"
+                  >
+                    {peerHealthHistory.map((pt) => (
+                      <option key={pt.time} value={pt.time}>
+                        {pt.time === 'Now' ? 'Current Time (Now)' : `${pt.time} ago`} ({pt.active} active peers)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Marker Type */}
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Marker Event Category:</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'maintenance', label: 'Maintenance', icon: Wrench, color: 'border-amber-500 bg-amber-50 text-amber-900' },
+                      { id: 'anomaly', label: 'Anomaly', icon: AlertTriangle, color: 'border-rose-500 bg-rose-50 text-rose-900' },
+                      { id: 'flag', label: 'General Flag', icon: Tag, color: 'border-blue-500 bg-blue-50 text-blue-900' },
+                    ].map((type) => {
+                      const IconComp = type.icon;
+                      const isSel = newAnnoType === type.id;
+                      return (
+                        <button
+                          key={type.id}
+                          type="button"
+                          onClick={() => setNewAnnoType(type.id as any)}
+                          className={`p-2 rounded-xl border text-center flex flex-col items-center gap-1 font-bold transition-all cursor-pointer ${
+                            isSel ? `${type.color} ring-2 ring-blue-500/30 shadow-2xs` : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          <IconComp className="w-4 h-4" />
+                          <span className="text-[10.5px]">{type.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Label Input */}
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Annotation Description / Event Note:</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sequencer Restart, BGP Flap, Hardfork Upgrade..."
+                    value={newAnnoLabel}
+                    onChange={(e) => setNewAnnoLabel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveAnnotation();
+                    }}
+                    autoFocus
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 font-mono text-xs">
+                <button
+                  onClick={() => setAnnotationModalOpen(false)}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveAnnotation}
+                  disabled={!newAnnoLabel.trim()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-xl transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>Save Marker</span>
                 </button>
               </div>
             </div>
