@@ -14,6 +14,7 @@ import {
   Tooltip,
   Legend,
   ReferenceLine,
+  Brush,
 } from 'recharts';
 import {
   Activity,
@@ -3254,8 +3255,8 @@ services:
                           </div>
                         </div>
 
-                        {/* Sparkline Area Chart */}
-                        <div className="h-36 w-full pt-1">
+                        {/* Sparkline Area Chart with Brush Zoom */}
+                        <div className="h-48 w-full pt-1">
                           <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={peerHealthHistory} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                               <defs>
@@ -3412,6 +3413,14 @@ services:
                                 fill="url(#peerActiveGradient)"
                                 dot={{ r: 3, fill: '#2563eb', strokeWidth: 1, stroke: '#ffffff' }}
                                 activeDot={{ r: 5, fill: '#1d4ed8' }}
+                              />
+                              <Brush
+                                dataKey="time"
+                                height={22}
+                                stroke="#2563eb"
+                                fill="#f8fafc"
+                                travellerWidth={10}
+                                tickFormatter={(val) => val}
                               />
                             </AreaChart>
                           </ResponsiveContainer>
