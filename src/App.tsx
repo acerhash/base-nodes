@@ -3417,8 +3417,8 @@ services:
                           </div>
                         </div>
 
-                        {/* Sparkline Area Chart with Brush Zoom */}
-                        <div className="h-48 w-full pt-1">
+                        {/* Sparkline Area Chart with Brush Zoom & Smooth Transition Animation */}
+                        <div className="h-48 w-full pt-1 transition-all duration-500 ease-in-out">
                           <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={peerHealthHistory} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                               <defs>
@@ -3435,6 +3435,7 @@ services:
                                 tickLine={false}
                               />
                               <YAxis
+                                key={`yaxis-${peerHealthScaleMode}`}
                                 scale={peerHealthScaleMode === 'log' ? 'log' : 'auto'}
                                 domain={peerHealthScaleMode === 'log' ? [10, 60] : [15, 55]}
                                 tick={{ fontSize: 10, fill: '#64748b' }}
@@ -3581,6 +3582,7 @@ services:
                                 }}
                               />
                               <Area
+                                key={`area-${peerHealthScaleMode}`}
                                 type="monotone"
                                 dataKey="active"
                                 name="Active Peers"
@@ -3590,6 +3592,9 @@ services:
                                 fill="url(#peerActiveGradient)"
                                 dot={{ r: 3, fill: '#2563eb', strokeWidth: 1, stroke: '#ffffff' }}
                                 activeDot={{ r: 5, fill: '#1d4ed8' }}
+                                isAnimationActive={true}
+                                animationDuration={800}
+                                animationEasing="ease-in-out"
                               />
                               <Brush
                                 dataKey="time"
