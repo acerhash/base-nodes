@@ -449,6 +449,7 @@ export default function App() {
   const [autoRefreshCountdown, setAutoRefreshCountdown] = useState(30);
 
   // Minimum Active Peers Threshold & Alert State
+  const [peerHealthScaleMode, setPeerHealthScaleMode] = useState<'linear' | 'log'>('linear');
   const [minActivePeersThreshold, setMinActivePeersThreshold] = useState<number>(40);
   const [currentActivePeers, setCurrentActivePeers] = useState<number>(48);
   const [peerAlertToast, setPeerAlertToast] = useState<{
@@ -3279,6 +3280,34 @@ services:
                                 Stable
                               </span>
                             </div>
+
+                            {/* Y-Axis Scale Toggle Button (Linear vs Logarithmic) */}
+                            <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs font-mono">
+                              <span className="text-[10px] font-bold text-slate-500 px-1.5 uppercase">Y-Scale:</span>
+                              <button
+                                onClick={() => setPeerHealthScaleMode('linear')}
+                                className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md transition-all cursor-pointer ${
+                                  peerHealthScaleMode === 'linear'
+                                    ? 'bg-blue-600 text-white shadow-2xs'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                }`}
+                                title="Set Y-Axis to Linear Scale"
+                              >
+                                Linear
+                              </button>
+                              <button
+                                onClick={() => setPeerHealthScaleMode('log')}
+                                className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md transition-all cursor-pointer ${
+                                  peerHealthScaleMode === 'log'
+                                    ? 'bg-purple-600 text-white shadow-2xs'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                }`}
+                                title="Set Y-Axis to Logarithmic Scale to amplify and visualize minor peer variance"
+                              >
+                                Logarithmic
+                              </button>
+                            </div>
+
                             <button
                               onClick={downloadPeerHealthCsv}
                               className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 hover:text-blue-600 border border-slate-200 hover:border-blue-300 font-bold text-[10px] rounded-lg transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs font-mono"
@@ -3406,10 +3435,12 @@ services:
                                 tickLine={false}
                               />
                               <YAxis
-                                domain={[15, 55]}
+                                scale={peerHealthScaleMode === 'log' ? 'log' : 'auto'}
+                                domain={peerHealthScaleMode === 'log' ? [10, 60] : [15, 55]}
                                 tick={{ fontSize: 10, fill: '#64748b' }}
                                 axisLine={{ stroke: '#cbd5e1' }}
                                 tickLine={false}
+                                tickFormatter={(val) => Math.round(val).toString()}
                               />
                               <Tooltip
                                 cursor={({ points, width, height }) => {
