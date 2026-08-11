@@ -65,6 +65,9 @@ import {
   Clock,
   Timer,
   ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+  TrendingDown,
   DownloadCloud,
   Archive,
   ShieldCheck,
@@ -3138,14 +3141,22 @@ services:
                               Active vs. Total Capacity
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 text-[11px] font-mono">
-                            <div className="flex items-center gap-1.5" title="Active P2P gossipsub connections">
-                              <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                              <span className="text-slate-700 font-bold">Active Peers</span>
+                          <div className="flex items-center gap-2 text-[11px] font-mono flex-wrap">
+                            <div className="flex items-center gap-1.5 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200/80" title="Active P2P gossipsub connections. Trend over last 15m: +1 peer (+2.1%)">
+                              <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0" />
+                              <span className="text-slate-800 font-bold">Active Peers</span>
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-extrabold">
+                                <ArrowUpRight className="w-3 h-3 text-emerald-600 stroke-[2.5]" />
+                                +1 (15m)
+                              </span>
                             </div>
-                            <div className="flex items-center gap-1.5" title="Configured maximum connection limit">
-                              <span className="w-2.5 h-0.5 bg-slate-500" />
-                              <span className="text-slate-600 font-semibold">Total Capacity (50)</span>
+                            <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200" title="Configured maximum connection limit. Capacity remains stable at 50 max nodes">
+                              <span className="w-2.5 h-0.5 bg-slate-500 shrink-0" />
+                              <span className="text-slate-700 font-semibold">Total Capacity (50)</span>
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-200 border border-slate-300 text-slate-700 text-[10px] font-bold">
+                                <Minus className="w-3 h-3 text-slate-500 stroke-[2.5]" />
+                                Stable
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -3174,13 +3185,52 @@ services:
                                 tickLine={false}
                               />
                               <Tooltip
+                                cursor={({ points, width, height }) => {
+                                  if (!points || !points[0]) return null;
+                                  const { x, y } = points[0];
+                                  return (
+                                    <g key={`crosshair-${x}-${y}`}>
+                                      {/* Vertical Crosshair Line */}
+                                      <line
+                                        x1={x}
+                                        y1={0}
+                                        x2={x}
+                                        y2={height || 140}
+                                        stroke="#2563eb"
+                                        strokeWidth={1.5}
+                                        strokeDasharray="3 3"
+                                      />
+                                      {/* Horizontal Crosshair Line */}
+                                      <line
+                                        x1={0}
+                                        y1={y}
+                                        x2={width || 500}
+                                        y2={y}
+                                        stroke="#3b82f6"
+                                        strokeWidth={1}
+                                        strokeDasharray="2 2"
+                                        opacity={0.7}
+                                      />
+                                      {/* Center Focus Dot */}
+                                      <circle cx={x} cy={y} r={5} fill="#1d4ed8" stroke="#ffffff" strokeWidth={2} />
+                                      <circle cx={x} cy={y} r={9} fill="none" stroke="#60a5fa" strokeWidth={1} opacity={0.6} />
+                                    </g>
+                                  );
+                                }}
                                 content={({ active, payload }) => {
                                   if (active && payload && payload.length) {
                                     const data = payload[0].payload;
                                     const utilization = ((data.active / data.total) * 100).toFixed(1);
                                     const availableHeadroom = data.total - data.active;
+
+                                    const dataIndex = peerHealthHistory.findIndex((d) => d.time === data.time);
+                                    const prev15mIndex = Math.max(0, dataIndex - 3);
+                                    const prev15mData = peerHealthHistory[prev15mIndex];
+                                    const active15mDiff = data.active - prev15mData.active;
+                                    const total15mDiff = data.total - prev15mData.total;
+
                                     return (
-                                      <div className="bg-slate-900 text-white p-3 rounded-xl text-xs font-mono shadow-2xl border border-slate-700 space-y-2.5 min-w-[240px]">
+                                      <div className="bg-slate-900 text-white p-3 rounded-xl text-xs font-mono shadow-2xl border border-slate-700 space-y-2.5 min-w-[250px]">
                                         <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
                                           <div className="font-bold text-blue-400 flex items-center gap-1.5">
                                             <Clock className="w-3.5 h-3.5 text-blue-400" />
@@ -3201,7 +3251,25 @@ services:
                                                 <div className="text-[9.5px] text-blue-300/80">Live connected nodes</div>
                                               </div>
                                             </div>
-                                            <span className="font-extrabold text-blue-300 text-xs">{data.active} nodes</span>
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="font-extrabold text-blue-300 text-xs">{data.active}</span>
+                                              {active15mDiff > 0 ? (
+                                                <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800/80">
+                                                  <ArrowUpRight className="w-3 h-3 text-emerald-400 stroke-[2.5]" />
+                                                  +{active15mDiff} (15m)
+                                                </span>
+                                              ) : active15mDiff < 0 ? (
+                                                <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-rose-400 bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-800/80">
+                                                  <ArrowDownRight className="w-3 h-3 text-rose-400 stroke-[2.5]" />
+                                                  {active15mDiff} (15m)
+                                                </span>
+                                              ) : (
+                                                <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                                                  <Minus className="w-3 h-3 text-slate-400 stroke-[2.5]" />
+                                                  Stable
+                                                </span>
+                                              )}
+                                            </div>
                                           </div>
 
                                           {/* Total Capacity Data Point */}
@@ -3210,10 +3278,16 @@ services:
                                               <span className="w-2.5 h-0.5 bg-slate-400 shrink-0" />
                                               <div>
                                                 <div className="text-slate-200 font-bold">Total Capacity</div>
-                                                <div className="text-[9.5px] text-slate-400">Max configured peer limit</div>
+                                                <div className="text-[9.5px] text-slate-400">Max configured limit</div>
                                               </div>
                                             </div>
-                                            <span className="font-bold text-slate-300 text-xs">{data.total} max</span>
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="font-bold text-slate-300 text-xs">{data.total} max</span>
+                                              <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                                                <Minus className="w-3 h-3 text-slate-400 stroke-[2.5]" />
+                                                Stable
+                                              </span>
+                                            </div>
                                           </div>
 
                                           {/* Legend Summary Stats */}
