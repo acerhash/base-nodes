@@ -444,6 +444,8 @@ export default function App() {
   const [isDiagnosticsModalOpen, setIsDiagnosticsModalOpen] = useState(false);
   const [isDiagnosticsRunning, setIsDiagnosticsRunning] = useState(false);
   const [copiedDiagnosticsJson, setCopiedDiagnosticsJson] = useState(false);
+  const [isAutoRefreshDiagnostics, setIsAutoRefreshDiagnostics] = useState(false);
+  const [autoRefreshCountdown, setAutoRefreshCountdown] = useState(30);
 
   const peerHealthHistory = [
     { time: '-60m', active: 42, total: 50, health: 96.0 },
@@ -578,6 +580,26 @@ export default function App() {
     }, 1200);
   };
 
+  // Auto-refresh diagnostics timer effect (re-runs benchmark probes every 30s)
+  useEffect(() => {
+    if (!isDiagnosticsModalOpen || !isAutoRefreshDiagnostics) {
+      setAutoRefreshCountdown(30);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setAutoRefreshCountdown((prev) => {
+        if (prev <= 1) {
+          runDiagnosticsBenchmark();
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isDiagnosticsModalOpen, isAutoRefreshDiagnostics]);
+
   const copyDiagnosticsJson = () => {
     const diagData = {
       timestamp: new Date().toISOString(),
@@ -705,6 +727,28 @@ export default function App() {
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+  };
+
+  const downloadPeerHealthCsv = () => {
+    const headers = ['Time Offset', 'Active Peers', 'Total Capacity', 'Health Score (%)', 'Utilization (%)', 'Headroom (Slots)'];
+    const rows = peerHealthHistory.map((item) => [
+      item.time,
+      item.active,
+      item.total,
+      item.health,
+      ((item.active / item.total) * 100).toFixed(1),
+      item.total - item.active,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `peer_connection_health_${nodeNetwork}_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleQuickAction = (action: 'restart' | 'logs' | 'clear_cache') => {
@@ -2769,14 +2813,55 @@ services:
                           </div>
                         </div>
 
-                        <button
-                          onClick={runDiagnosticsBenchmark}
-                          disabled={isDiagnosticsRunning}
-                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-auto cursor-pointer disabled:opacity-50"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${isDiagnosticsRunning ? 'animate-spin' : ''}`} />
-                          <span>{isDiagnosticsRunning ? 'Running Benchmark...' : 'Run Diagnostics'}</span>
-                        </button>
+                        <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap self-start sm:self-auto">
+                          {/* Auto-refresh diagnostics toggle */}
+                          <label
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all cursor-pointer select-none text-xs font-semibold ${
+                              isAutoRefreshDiagnostics
+                                ? 'bg-blue-100/90 border-blue-300 text-blue-900 shadow-2xs'
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                            title="Toggle automatic benchmark probes re-run every 30 seconds"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isAutoRefreshDiagnostics}
+                              onChange={(e) => setIsAutoRefreshDiagnostics(e.target.checked)}
+                              className="sr-only"
+                            />
+                            <div
+                              className={`w-7 h-4 rounded-full transition-colors relative flex items-center p-0.5 ${
+                                isAutoRefreshDiagnostics ? 'bg-blue-600' : 'bg-slate-300'
+                              }`}
+                            >
+                              <div
+                                className={`w-3 h-3 rounded-full bg-white shadow-sm transform transition-transform ${
+                                  isAutoRefreshDiagnostics ? 'translate-x-3' : 'translate-x-0'
+                                }`}
+                              />
+                            </div>
+                            <div className="flex items-center gap-1.5 font-mono">
+                              <span>Auto-refresh</span>
+                              {isAutoRefreshDiagnostics ? (
+                                <span className="px-1.5 py-0.5 rounded bg-blue-600 text-white text-[10px] font-extrabold flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                                  {autoRefreshCountdown}s
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 font-normal">(30s)</span>
+                              )}
+                            </div>
+                          </label>
+
+                          <button
+                            onClick={runDiagnosticsBenchmark}
+                            disabled={isDiagnosticsRunning}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50 shadow-2xs"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isDiagnosticsRunning ? 'animate-spin' : ''}`} />
+                            <span>{isDiagnosticsRunning ? 'Running Benchmark...' : 'Run Diagnostics'}</span>
+                          </button>
+                        </div>
                       </div>
 
                       {/* 3 Main Diagnostic Sections Grid */}
@@ -3158,6 +3243,14 @@ services:
                                 Stable
                               </span>
                             </div>
+                            <button
+                              onClick={downloadPeerHealthCsv}
+                              className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 hover:text-blue-600 border border-slate-200 hover:border-blue-300 font-bold text-[10px] rounded-lg transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs font-mono"
+                              title="Download 60-minute peer connection health trend history as a CSV file for offline analysis"
+                            >
+                              <DownloadCloud className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Export CSV</span>
+                            </button>
                           </div>
                         </div>
 
