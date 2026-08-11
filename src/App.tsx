@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
 import {
   ResponsiveContainer,
@@ -455,6 +455,48 @@ export default function App() {
   const [peerHealthScaleMode, setPeerHealthScaleMode] = useState<'linear' | 'log'>('linear');
   const [minActivePeersThreshold, setMinActivePeersThreshold] = useState<number>(40);
   const [currentActivePeers, setCurrentActivePeers] = useState<number>(48);
+
+  // Total Peer Capacity & Automated Reduction Notification State
+  const [totalPeerCapacity, setTotalPeerCapacity] = useState<number>(50);
+  const prevTotalCapacityRef = useRef<number>(50);
+
+  const [capacityDropToast, setCapacityDropToast] = useState<{
+    visible: boolean;
+    previousCapacity: number;
+    currentCapacity: number;
+    dropAmount: number;
+    timestamp: string;
+    dismissed: boolean;
+  }>({
+    visible: false,
+    previousCapacity: 50,
+    currentCapacity: 50,
+    dropAmount: 0,
+    timestamp: '',
+    dismissed: false,
+  });
+
+  // Automated notification effect: trigger toast alert if Total Capacity unexpectedly decreases
+  useEffect(() => {
+    if (totalPeerCapacity < prevTotalCapacityRef.current) {
+      const drop = prevTotalCapacityRef.current - totalPeerCapacity;
+      setCapacityDropToast({
+        visible: true,
+        previousCapacity: prevTotalCapacityRef.current,
+        currentCapacity: totalPeerCapacity,
+        dropAmount: drop,
+        timestamp: new Date().toLocaleTimeString(),
+        dismissed: false,
+      });
+    } else if (totalPeerCapacity >= prevTotalCapacityRef.current && totalPeerCapacity >= 50) {
+      setCapacityDropToast((prev) => ({
+        ...prev,
+        visible: false,
+      }));
+    }
+    prevTotalCapacityRef.current = totalPeerCapacity;
+  }, [totalPeerCapacity]);
+
   const [peerAlertToast, setPeerAlertToast] = useState<{
     visible: boolean;
     activeCount: number;
@@ -488,19 +530,19 @@ export default function App() {
   }, [currentActivePeers, minActivePeersThreshold]);
 
   const peerHealthHistory = [
-    { time: '-60m', active: 42, total: 50, health: 96.0 },
-    { time: '-55m', active: 44, total: 50, health: 97.5 },
-    { time: '-50m', active: 41, total: 50, health: 95.2 },
-    { time: '-45m', active: 43, total: 50, health: 96.8 },
-    { time: '-40m', active: 45, total: 50, health: 98.0 },
-    { time: '-35m', active: 46, total: 50, health: 98.5 },
-    { time: '-30m', active: 45, total: 50, health: 98.0 },
-    { time: '-25m', active: 47, total: 50, health: 99.0 },
-    { time: '-20m', active: 46, total: 50, health: 98.5 },
-    { time: '-15m', active: 47, total: 50, health: 99.0 },
-    { time: '-10m', active: 48, total: 50, health: 99.2 },
-    { time: '-5m', active: 48, total: 50, health: 99.2 },
-    { time: 'Now', active: currentActivePeers, total: 50, health: Math.min(100, Number(((currentActivePeers / 50) * 100).toFixed(1))) },
+    { time: '-60m', active: Math.min(42, totalPeerCapacity), total: totalPeerCapacity, health: Number(((Math.min(42, totalPeerCapacity) / totalPeerCapacity) * 100).toFixed(1)) },
+    { time: '-55m', active: Math.min(44, totalPeerCapacity), total: totalPeerCapacity, health: Number(((Math.min(44, totalPeerCapacity) / totalPeerCapacity) * 100).toFixed(1)) },
+    { time: '-50m', active: Math.min(41, totalPeerCapacity), total: totalPeerCapacity, health: Number(((Math.min(41, totalPeerCapacity) / totalPeerCapacity) * 100).toFixed(1)) },
+    { time: '-45m', active: Math.min(43, totalPeerCapacity), total: totalPeerCapacity, health: Number(((Math.min(43, totalPeerCapacity) / totalPeerCapacity) * 100).toFixed(1)) },
+    { time: '-40m', active: Math.min(45, totalPeerCapacity), total: totalPeerCapacity, health: Number(((Math.min(45, totalPeerCapacity) / totalPeerCapacity) * 100).toFixed(1)) },
+    { time: '-35m', active: Math.min(46, totalPeerCapacity), total: totalPeerCapacity, health: Number(((Math.min(46, totalPeerCapacity) / totalPeerCapacity) * 100).toFixed(1)) },
+    { time: '-30m', active: Math.min(45, totalPeerCapacity), total: totalPeerCapacity, health: Number(((Math.min(45, totalPeerCapacity) / totalPeerCapacity) * 100).toFixed(1)) },
+    { time: '-25m', active: Math.min(47, totalPeerCapacity), total: totalPeerCapacity, health: Number(((Math.min(47, totalPeerCapacity) / totalPeerCapacity) * 100).toFixed(1)) },
+    { time: '-20m', active: Math.min(46, totalPeerCapacity), total: totalPeerCapacity, health: Number(((Math.min(46, totalPeerCapacity) / totalPeerCapacity) * 100).toFixed(1)) },
+    { time: '-15m', active: Math.min(47, totalPeerCapacity), total: totalPeerCapacity, health: Number(((Math.min(47, totalPeerCapacity) / totalPeerCapacity) * 100).toFixed(1)) },
+    { time: '-10m', active: Math.min(48, totalPeerCapacity), total: totalPeerCapacity, health: Number(((Math.min(48, totalPeerCapacity) / totalPeerCapacity) * 100).toFixed(1)) },
+    { time: '-5m', active: Math.min(48, totalPeerCapacity), total: totalPeerCapacity, health: Number(((Math.min(48, totalPeerCapacity) / totalPeerCapacity) * 100).toFixed(1)) },
+    { time: 'Now', active: Math.min(currentActivePeers, totalPeerCapacity), total: totalPeerCapacity, health: Math.min(100, Number(((Math.min(currentActivePeers, totalPeerCapacity) / totalPeerCapacity) * 100).toFixed(1))) },
   ];
 
   // Peer Chart Custom Annotations / Flag Markers State
@@ -3352,13 +3394,20 @@ services:
                                 </div>
                               );
                             })()}
-                            <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200" title="Configured maximum connection limit. Capacity remains stable at 50 max nodes">
+                            <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200" title={`Configured maximum P2P connection limit (${totalPeerCapacity} max nodes)`}>
                               <span className="w-2.5 h-0.5 bg-slate-500 shrink-0" />
-                              <span className="text-slate-700 font-semibold">Total Capacity (50)</span>
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-200 border border-slate-300 text-slate-700 text-[10px] font-bold">
-                                <Minus className="w-3 h-3 text-slate-500 stroke-[2.5]" />
-                                Stable
-                              </span>
+                              <span className="text-slate-700 font-semibold">Total Capacity ({totalPeerCapacity})</span>
+                              {totalPeerCapacity < 50 ? (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 border border-rose-300 text-rose-800 text-[10px] font-extrabold animate-pulse">
+                                  <AlertTriangle className="w-3 h-3 text-rose-600 stroke-[2.5]" />
+                                  Capacity Drop (-{50 - totalPeerCapacity})
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-200 border border-slate-300 text-slate-700 text-[10px] font-bold">
+                                  <Minus className="w-3 h-3 text-slate-500 stroke-[2.5]" />
+                                  Nominal
+                                </span>
+                              )}
                             </div>
 
                             {/* Prominent Y-Axis Scale Toggle Button with Icon and Dynamic Text */}
@@ -3513,29 +3562,55 @@ services:
                             </div>
                           </div>
 
-                          {/* Peer Simulation Quick Controls */}
+                          {/* Peer & Capacity Simulation Quick Controls */}
                           <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-[11px] flex-wrap">
-                            <div className="flex items-center gap-2 text-slate-400">
-                              <span>Simulate Active Peer Count:</span>
-                              <span className="font-mono font-bold text-white text-xs">{currentActivePeers} / 50</span>
+                            <div className="flex items-center gap-3 flex-wrap text-slate-400 font-mono">
+                              <div>
+                                <span>Active Peers: </span>
+                                <span className="font-bold text-white text-xs">{currentActivePeers}</span>
+                              </div>
+                              <span className="text-slate-600">|</span>
+                              <div>
+                                <span>Total Capacity: </span>
+                                <span className="font-bold text-amber-300 text-xs">{totalPeerCapacity}</span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 flex-wrap">
+
+                            <div className="flex items-center gap-2 flex-wrap font-mono">
+                              {/* Active Peer Drop Simulation */}
                               <button
                                 onClick={() => setCurrentActivePeers(28)}
-                                className="px-2.5 py-1 bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-800 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
-                                title="Drop active peers to 28 to test threshold alert trigger"
+                                className="px-2 py-1 bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-800 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                                title="Drop active peers to 28 to test min active peers threshold alert trigger"
                               >
                                 <ArrowDownRight className="w-3 h-3 text-rose-400" />
-                                <span>Simulate Low Peer Drop (28)</span>
+                                <span>Simulate Low Peers (28)</span>
                               </button>
+
+                              {/* Total Capacity Drop Simulation */}
                               <button
-                                onClick={() => setCurrentActivePeers(48)}
-                                className="px-2.5 py-1 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 border border-emerald-800 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
-                                title="Reset active peers back to normal count (48)"
+                                onClick={() => setTotalPeerCapacity(35)}
+                                className="px-2 py-1 bg-amber-950/90 hover:bg-amber-900 text-amber-200 border border-amber-700/80 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                                title="Simulate unexpected P2P node shutdown / misconfiguration drop in Total Capacity (50 -> 35 max nodes)"
                               >
-                                <RotateCcw className="w-3 h-3 text-emerald-400" />
-                                <span>Restore Peers (48)</span>
+                                <AlertTriangle className="w-3 h-3 text-amber-400" />
+                                <span>Simulate Capacity Drop (35)</span>
                               </button>
+
+                              {/* Restore All Controls */}
+                              {(currentActivePeers !== 48 || totalPeerCapacity !== 50) && (
+                                <button
+                                  onClick={() => {
+                                    setCurrentActivePeers(48);
+                                    setTotalPeerCapacity(50);
+                                  }}
+                                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                                  title="Restore default peer count (48) and total capacity (50)"
+                                >
+                                  <RotateCcw className="w-3 h-3 text-slate-400" />
+                                  <span>Restore Defaults</span>
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -5033,7 +5108,78 @@ console.log('Base Block:', block);`}
           </div>
         )}
 
-        {/* FLOATING NOTIFICATION TOAST: MINIMUM ACTIVE PEERS THRESHOLD ALERT */}
+        {/* FLOATING NOTIFICATION TOAST: TOTAL CAPACITY DECREASE ALERT */}
+        {capacityDropToast.visible && !capacityDropToast.dismissed && (
+          <div className="fixed bottom-6 right-6 sm:bottom-6 sm:right-6 z-50 max-w-md w-full bg-slate-900/95 text-white p-4 rounded-2xl border-2 border-amber-500/80 shadow-2xl backdrop-blur-md space-y-3 animate-in fade-in slide-in-from-bottom-5 duration-300">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/40 shrink-0 mt-0.5">
+                  <AlertTriangle className="w-5 h-5 animate-bounce text-amber-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-extrabold text-white">Network Capacity Decrease Alert</h4>
+                    <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-300 font-mono text-[9px] font-extrabold rounded border border-amber-500/40 uppercase">
+                      P2P Node Shutdown
+                    </span>
+                  </div>
+                  <p className="text-[11.5px] text-slate-200 mt-1 leading-snug">
+                    Total peer capacity unexpectedly decreased from <span className="font-extrabold text-slate-200 font-mono">{capacityDropToast.previousCapacity}</span> to <span className="font-extrabold text-amber-400 font-mono">{capacityDropToast.currentCapacity} max nodes</span> (<span className="text-rose-400 font-bold">-{capacityDropToast.dropAmount} max nodes</span>). Possible node failure or P2P misconfiguration.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setCapacityDropToast((prev) => ({ ...prev, dismissed: true }))}
+                className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors shrink-0"
+                title="Dismiss notification"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 font-mono text-[10px] space-y-1">
+              <div className="flex justify-between text-slate-400">
+                <span>Previous Capacity:</span>
+                <span className="text-slate-200 font-bold">{capacityDropToast.previousCapacity} nodes</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Current Capacity:</span>
+                <span className="text-amber-400 font-extrabold">{capacityDropToast.currentCapacity} nodes</span>
+              </div>
+              <div className="flex justify-between text-slate-400 pt-1 border-t border-slate-800">
+                <span>Capacity Deficit:</span>
+                <span className="text-rose-400 font-extrabold">-{capacityDropToast.dropAmount} max nodes</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-1 text-xs font-mono">
+              <span className="text-[10px] text-slate-400">Detected at {capacityDropToast.timestamp}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setTotalPeerCapacity(50);
+                    setCapacityDropToast((prev) => ({ ...prev, dismissed: true }));
+                  }}
+                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <RotateCcw className="w-3 h-3 text-slate-400" />
+                  <span>Restore Capacity</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsDiagnosticsModalOpen(true);
+                    setCapacityDropToast((prev) => ({ ...prev, dismissed: true }));
+                  }}
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Diagnostics</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {peerAlertToast.visible && !peerAlertToast.dismissed && (
           <div className="fixed bottom-6 right-6 sm:bottom-6 sm:right-6 z-50 max-w-md w-full bg-slate-900/95 text-white p-4 rounded-2xl border-2 border-rose-500/80 shadow-2xl backdrop-blur-md space-y-3 animate-in fade-in slide-in-from-bottom-5 duration-300">
             <div className="flex items-start justify-between gap-3">
