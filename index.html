@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      (function() {
+        // Prevent crashes from injected wallet extension redefinition errors (e.g., Zerion, Coinbase, MetaMask)
+        const origDefineProperty = Object.defineProperty;
+        Object.defineProperty = function(obj, prop, descriptor) {
+          try {
+            return origDefineProperty(obj, prop, descriptor);
+          } catch (err) {
+            if (err && (err.message?.includes('Cannot redefine property') || err.message?.includes('isZerion') || String(prop) === 'isZerion')) {
+              try {
+                obj[prop] = descriptor ? descriptor.value : undefined;
+              } catch (_) {}
+              return obj;
+            }
+            throw err;
+          }
+        };
+
+        window.addEventListener('error', function(event) {
+          if (event && (event.message?.includes('isZerion') || event.message?.includes('Cannot redefine property'))) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(event) {
+          const reasonMsg = event && event.reason ? (event.reason.message || String(event.reason)) : '';
+          if (reasonMsg.includes('isZerion') || reasonMsg.includes('Cannot redefine property')) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+          }
+        }, true);
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Base Node & Mini App Suite</title>
+    <meta name="fc:miniapp" content='{
+      "version": "next",
+      "imageUrl": "https://base.org/og.png",
+      "button": {
+        "title": "Launch Base Suite",
+        "action": {
+          "type": "launch_miniapp",
+          "name": "Base Suite",
+          "url": "https://base.org"
+        }
+      }
+    }' />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

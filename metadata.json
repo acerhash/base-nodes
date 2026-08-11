@@ -1,0 +1,6 @@
+{
+  "name": "Base Node & Mini App Suite",
+  "description": "Interactive Base Mini App built with Farcaster MiniApp SDK, featuring 200ms Flashblocks testing, Base Node RPC monitoring, account association verification, and deployment tools.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
