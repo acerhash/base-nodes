@@ -30,6 +30,8 @@ import {
   Check,
   RefreshCw,
   Camera,
+  Eye,
+  EyeOff,
   Play,
   Layers,
   Code2,
@@ -455,6 +457,8 @@ export default function App() {
 
   // Minimum Active Peers Threshold & Alert State
   const [peerHealthScaleMode, setPeerHealthScaleMode] = useState<'linear' | 'log'>('linear');
+  const [showActivePeers, setShowActivePeers] = useState<boolean>(true);
+  const [showTotalCapacity, setShowTotalCapacity] = useState<boolean>(true);
   const [minActivePeersThreshold, setMinActivePeersThreshold] = useState<number>(40);
   const [currentActivePeers, setCurrentActivePeers] = useState<number>(48);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
@@ -3438,13 +3442,28 @@ services:
 
                               return (
                                 <>
-                                  {/* Active Peers Legend & Trend Indicator */}
-                                  <div
-                                    className="flex items-center gap-1.5 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200/80"
-                                    title={`Active P2P gossipsub connections. 15m Trend: ${peerDiff15m > 0 ? `+${peerDiff15m}` : peerDiff15m} peers (from ${point15m.active} to ${recentPoint.active})`}
+                                  {/* Active Peers Legend & Trend Indicator Toggle Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowActivePeers((prev) => !prev)}
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border transition-all cursor-pointer font-mono ${
+                                      showActivePeers
+                                        ? 'bg-blue-50 hover:bg-blue-100 border-blue-200/80 text-slate-800 shadow-2xs'
+                                        : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-400 opacity-60 line-through'
+                                    }`}
+                                    title={
+                                      showActivePeers
+                                        ? `Click to hide 'Active Peers' series from chart (Current: ${recentPoint.active} peers)`
+                                        : `Click to show 'Active Peers' series on chart`
+                                    }
                                   >
+                                    {showActivePeers ? (
+                                      <Eye className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                    ) : (
+                                      <EyeOff className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    )}
                                     <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0" />
-                                    <span className="text-slate-800 font-bold flex items-center gap-1">
+                                    <span className="font-bold flex items-center gap-1">
                                       Active Peers ({recentPoint.active})
                                       {peerDiff15m > 0 ? (
                                         <ArrowUpRight className={`w-3.5 h-3.5 text-emerald-600 stroke-[2.5] transition-all duration-300 ${isChartRefreshing ? 'animate-breathe' : ''}`} />
@@ -3467,15 +3486,30 @@ services:
                                         0 (15m)
                                       </span>
                                     )}
-                                  </div>
+                                  </button>
 
-                                  {/* Total Capacity Legend & Trend Indicator */}
-                                  <div
-                                    className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200"
-                                    title={`Configured maximum P2P connection limit (${recentPoint.total} max nodes). 15m Trend: ${capacityDiff15m > 0 ? `+${capacityDiff15m}` : capacityDiff15m} nodes (from ${point15m.total} to ${recentPoint.total})`}
+                                  {/* Total Capacity Legend & Trend Indicator Toggle Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowTotalCapacity((prev) => !prev)}
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border transition-all cursor-pointer font-mono ${
+                                      showTotalCapacity
+                                        ? 'bg-slate-100 hover:bg-slate-200/80 border-slate-200 text-slate-800 shadow-2xs'
+                                        : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-400 opacity-60 line-through'
+                                    }`}
+                                    title={
+                                      showTotalCapacity
+                                        ? `Click to hide 'Total Capacity' baseline from chart (Current: ${recentPoint.total} max)`
+                                        : `Click to show 'Total Capacity' baseline on chart`
+                                    }
                                   >
+                                    {showTotalCapacity ? (
+                                      <Eye className="w-3.5 h-3.5 text-slate-700 shrink-0" />
+                                    ) : (
+                                      <EyeOff className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    )}
                                     <span className="w-2.5 h-0.5 bg-slate-500 shrink-0" />
-                                    <span className="text-slate-700 font-semibold flex items-center gap-1">
+                                    <span className="font-semibold flex items-center gap-1">
                                       Total Capacity ({recentPoint.total})
                                       {capacityDiff15m > 0 ? (
                                         <ArrowUpRight className={`w-3.5 h-3.5 text-emerald-600 stroke-[2.5] transition-all duration-300 ${isChartRefreshing ? 'animate-breathe' : ''}`} />
@@ -3498,10 +3532,51 @@ services:
                                         0 (15m)
                                       </span>
                                     )}
-                                  </div>
+                                  </button>
                                 </>
                               );
                             })()}
+
+                            {/* Legend Visibility Quick Toggle Group */}
+                            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-300 shadow-xs font-mono text-[10px]">
+                              <span className="text-slate-500 font-extrabold px-1 text-[9px] uppercase tracking-wider">Legend:</span>
+                              <button
+                                onClick={() => setShowActivePeers((prev) => !prev)}
+                                className={`px-2 py-0.5 font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1 border ${
+                                  showActivePeers
+                                    ? 'bg-blue-50 text-blue-800 border-blue-300/80 shadow-2xs'
+                                    : 'bg-slate-100 text-slate-400 border-slate-200 opacity-60 hover:opacity-100 line-through'
+                                }`}
+                                title={showActivePeers ? "Click to hide Active Peers area" : "Click to show Active Peers area"}
+                              >
+                                {showActivePeers ? <Eye className="w-3 h-3 text-blue-600" /> : <EyeOff className="w-3 h-3 text-slate-400" />}
+                                <span>Active</span>
+                              </button>
+                              <button
+                                onClick={() => setShowTotalCapacity((prev) => !prev)}
+                                className={`px-2 py-0.5 font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1 border ${
+                                  showTotalCapacity
+                                    ? 'bg-slate-100 text-slate-800 border-slate-300 shadow-2xs'
+                                    : 'bg-slate-100 text-slate-400 border-slate-200 opacity-60 hover:opacity-100 line-through'
+                                }`}
+                                title={showTotalCapacity ? "Click to hide Total Capacity line" : "Click to show Total Capacity line"}
+                              >
+                                {showTotalCapacity ? <Eye className="w-3 h-3 text-slate-700" /> : <EyeOff className="w-3 h-3 text-slate-400" />}
+                                <span>Capacity</span>
+                              </button>
+                              {(!showActivePeers || !showTotalCapacity) && (
+                                <button
+                                  onClick={() => {
+                                    setShowActivePeers(true);
+                                    setShowTotalCapacity(true);
+                                  }}
+                                  className="px-1.5 py-0.5 font-extrabold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-[9.5px]"
+                                  title="Reset and show all chart series"
+                                >
+                                  Show Both
+                                </button>
+                              )}
+                            </div>
 
                             {/* Prominent Y-Axis Scale Toggle Button with Icon and Dynamic Text */}
                             <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-300 shadow-xs font-mono">
@@ -3749,6 +3824,15 @@ services:
 
                         {/* Sparkline Area Chart with Brush Zoom, Click-to-Annotate & Custom Flag Markers */}
                         <div className="h-48 w-full pt-1 transition-all duration-500 ease-in-out cursor-crosshair relative group" title="Click anywhere on chart to add a custom Maintenance or Network Anomaly marker">
+                          {!showActivePeers && !showTotalCapacity && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-slate-50/90 backdrop-blur-xs z-10 rounded-xl pointer-events-none">
+                              <div className="text-center p-3 bg-white border border-slate-200 rounded-xl shadow-xs space-y-1 font-mono">
+                                <EyeOff className="w-5 h-5 text-slate-400 mx-auto" />
+                                <div className="text-xs font-bold text-slate-700">All Chart Legend Series Hidden</div>
+                                <div className="text-[10px] text-slate-500">Click the legend toggles above to show 'Active Peers' or 'Total Capacity'</div>
+                              </div>
+                            </div>
+                          )}
                           <div className="absolute top-1 right-2 z-10 text-[9.5px] font-mono text-slate-400 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
                             💡 Click point to annotate
                           </div>
@@ -3827,7 +3911,6 @@ services:
                                     const prev15mIndex = Math.max(0, dataIndex - 3);
                                     const prev15mData = peerHealthHistory[prev15mIndex];
                                     const active15mDiff = data.active - prev15mData.active;
-                                    const total15mDiff = data.total - prev15mData.total;
 
                                     return (
                                       <div className="bg-slate-900 text-white p-3 rounded-xl text-xs font-mono shadow-2xl border border-slate-700 space-y-2.5 min-w-[250px]">
@@ -3843,52 +3926,56 @@ services:
 
                                         <div className="space-y-1.5 text-[11px]">
                                           {/* Active Peers Data Point */}
-                                          <div className="flex items-center justify-between bg-blue-950/70 p-2 rounded-lg border border-blue-800/60">
-                                            <div className="flex items-center gap-2">
-                                              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0 ring-2 ring-blue-400/30" />
-                                              <div>
-                                                <div className="text-slate-100 font-bold">Active Peers</div>
-                                                <div className="text-[9.5px] text-blue-300/80">Live connected nodes</div>
+                                          {showActivePeers && (
+                                            <div className="flex items-center justify-between bg-blue-950/70 p-2 rounded-lg border border-blue-800/60">
+                                              <div className="flex items-center gap-2">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0 ring-2 ring-blue-400/30" />
+                                                <div>
+                                                  <div className="text-slate-100 font-bold">Active Peers</div>
+                                                  <div className="text-[9.5px] text-blue-300/80">Live connected nodes</div>
+                                                </div>
+                                              </div>
+                                              <div className="flex items-center gap-1.5">
+                                                <span className="font-extrabold text-blue-300 text-xs">{data.active}</span>
+                                                {active15mDiff > 0 ? (
+                                                  <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800/80">
+                                                    <ArrowUpRight className="w-3 h-3 text-emerald-400 stroke-[2.5]" />
+                                                    +{active15mDiff} (15m)
+                                                  </span>
+                                                ) : active15mDiff < 0 ? (
+                                                  <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-rose-400 bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-800/80">
+                                                    <ArrowDownRight className="w-3 h-3 text-rose-400 stroke-[2.5]" />
+                                                    {active15mDiff} (15m)
+                                                  </span>
+                                                ) : (
+                                                  <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                                                    <Minus className="w-3 h-3 text-slate-400 stroke-[2.5]" />
+                                                    Stable
+                                                  </span>
+                                                )}
                                               </div>
                                             </div>
-                                            <div className="flex items-center gap-1.5">
-                                              <span className="font-extrabold text-blue-300 text-xs">{data.active}</span>
-                                              {active15mDiff > 0 ? (
-                                                <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800/80">
-                                                  <ArrowUpRight className="w-3 h-3 text-emerald-400 stroke-[2.5]" />
-                                                  +{active15mDiff} (15m)
-                                                </span>
-                                              ) : active15mDiff < 0 ? (
-                                                <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-rose-400 bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-800/80">
-                                                  <ArrowDownRight className="w-3 h-3 text-rose-400 stroke-[2.5]" />
-                                                  {active15mDiff} (15m)
-                                                </span>
-                                              ) : (
-                                                <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                                          )}
+
+                                          {/* Total Capacity Data Point */}
+                                          {showTotalCapacity && (
+                                            <div className="flex items-center justify-between bg-slate-800/70 p-2 rounded-lg border border-slate-700/60">
+                                              <div className="flex items-center gap-2">
+                                                <span className="w-2.5 h-0.5 bg-slate-400 shrink-0" />
+                                                <div>
+                                                  <div className="text-slate-200 font-bold">Total Capacity</div>
+                                                  <div className="text-[9.5px] text-slate-400">Max configured limit</div>
+                                                </div>
+                                              </div>
+                                              <div className="flex items-center gap-1.5">
+                                                <span className="font-bold text-slate-300 text-xs">{data.total} max</span>
+                                                <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
                                                   <Minus className="w-3 h-3 text-slate-400 stroke-[2.5]" />
                                                   Stable
                                                 </span>
-                                              )}
-                                            </div>
-                                          </div>
-
-                                          {/* Total Capacity Data Point */}
-                                          <div className="flex items-center justify-between bg-slate-800/70 p-2 rounded-lg border border-slate-700/60">
-                                            <div className="flex items-center gap-2">
-                                              <span className="w-2.5 h-0.5 bg-slate-400 shrink-0" />
-                                              <div>
-                                                <div className="text-slate-200 font-bold">Total Capacity</div>
-                                                <div className="text-[9.5px] text-slate-400">Max configured limit</div>
                                               </div>
                                             </div>
-                                            <div className="flex items-center gap-1.5">
-                                              <span className="font-bold text-slate-300 text-xs">{data.total} max</span>
-                                              <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-                                                <Minus className="w-3 h-3 text-slate-400 stroke-[2.5]" />
-                                                Stable
-                                              </span>
-                                            </div>
-                                          </div>
+                                          )}
 
                                           {/* Legend Summary Stats */}
                                           <div className="grid grid-cols-2 gap-1.5 pt-1 text-[10px] font-mono border-t border-slate-800/80">
@@ -3908,7 +3995,28 @@ services:
                                   return null;
                                 }}
                               />
-                              <ReferenceLine y={50} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: 'Total Capacity (50)', fill: '#64748b', fontSize: 9, position: 'insideTopRight' }} />
+                              {showTotalCapacity && (
+                                <ReferenceLine
+                                  y={totalPeerCapacity}
+                                  stroke="#64748b"
+                                  strokeDasharray="4 4"
+                                  strokeWidth={1.5}
+                                  label={{ value: `Total Capacity (${totalPeerCapacity})`, fill: '#475569', fontSize: 9, position: 'insideTopRight' }}
+                                />
+                              )}
+                              {showTotalCapacity && (
+                                <Line
+                                  type="monotone"
+                                  dataKey="total"
+                                  name="Total Capacity"
+                                  stroke="#64748b"
+                                  strokeWidth={2}
+                                  strokeDasharray="4 4"
+                                  dot={{ r: 2.5, fill: '#64748b' }}
+                                  activeDot={{ r: 4.5, fill: '#334155' }}
+                                  isAnimationActive={true}
+                                />
+                              )}
                               <ReferenceLine
                                 y={minActivePeersThreshold}
                                 stroke="#f43f5e"
@@ -3952,21 +4060,23 @@ services:
                                 />
                               ))}
 
-                              <Area
-                                key={`area-${peerHealthScaleMode}`}
-                                type="monotone"
-                                dataKey="active"
-                                name="Active Peers"
-                                stroke="#2563eb"
-                                strokeWidth={2}
-                                fillOpacity={1}
-                                fill="url(#peerActiveGradient)"
-                                dot={{ r: 3, fill: '#2563eb', strokeWidth: 1, stroke: '#ffffff' }}
-                                activeDot={{ r: 5, fill: '#1d4ed8' }}
-                                isAnimationActive={true}
-                                animationDuration={800}
-                                animationEasing="ease-in-out"
-                              />
+                              {showActivePeers && (
+                                <Area
+                                  key={`area-${peerHealthScaleMode}`}
+                                  type="monotone"
+                                  dataKey="active"
+                                  name="Active Peers"
+                                  stroke="#2563eb"
+                                  strokeWidth={2}
+                                  fillOpacity={1}
+                                  fill="url(#peerActiveGradient)"
+                                  dot={{ r: 3, fill: '#2563eb', strokeWidth: 1, stroke: '#ffffff' }}
+                                  activeDot={{ r: 5, fill: '#1d4ed8' }}
+                                  isAnimationActive={true}
+                                  animationDuration={800}
+                                  animationEasing="ease-in-out"
+                                />
+                              )}
                               <Brush
                                 dataKey="time"
                                 height={22}
