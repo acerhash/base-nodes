@@ -457,6 +457,8 @@ export default function App() {
 
   // Minimum Active Peers Threshold & Alert State
   const [peerHealthScaleMode, setPeerHealthScaleMode] = useState<'linear' | 'log'>('linear');
+  const [yAxisFloor, setYAxisFloor] = useState<string>('15');
+  const [yAxisCeiling, setYAxisCeiling] = useState<string>('55');
   const [showActivePeers, setShowActivePeers] = useState<boolean>(true);
   const [showTotalCapacity, setShowTotalCapacity] = useState<boolean>(true);
   const [minActivePeersThreshold, setMinActivePeersThreshold] = useState<number>(40);
@@ -3578,8 +3580,8 @@ services:
                               )}
                             </div>
 
-                            {/* Prominent Y-Axis Scale Toggle Button with Icon and Dynamic Text */}
-                            <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-300 shadow-xs font-mono">
+                            {/* Prominent Y-Axis Scale Toggle Button with Icon, Dynamic Text & Manual Floor/Ceiling Range Inputs */}
+                            <div className="flex flex-wrap items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-300 shadow-xs font-mono">
                               <button
                                 onClick={() => setPeerHealthScaleMode(prev => (prev === 'linear' ? 'log' : 'linear'))}
                                 className={`px-3 py-1 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs ${
@@ -3623,16 +3625,44 @@ services:
                                 </button>
                               </div>
 
-                              {/* Reset Scale Button */}
+                              {/* Manual Y-Axis Range Inputs (Floor & Ceiling) */}
+                              <div className="flex items-center gap-1.5 border-l border-slate-200 pl-1.5 text-[10px]">
+                                <div className="flex items-center gap-1" title="Set minimum Y-Axis range boundary (Floor)">
+                                  <span className="text-slate-500 font-extrabold text-[9px] uppercase tracking-wider">Floor:</span>
+                                  <input
+                                    type="number"
+                                    value={yAxisFloor}
+                                    onChange={(e) => setYAxisFloor(e.target.value)}
+                                    placeholder="Min"
+                                    className="w-11 px-1 py-0.5 bg-slate-50 border border-slate-300 rounded-md font-bold text-slate-800 text-center focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white text-[10px]"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1" title="Set maximum Y-Axis range boundary (Ceiling)">
+                                  <span className="text-slate-500 font-extrabold text-[9px] uppercase tracking-wider">Ceiling:</span>
+                                  <input
+                                    type="number"
+                                    value={yAxisCeiling}
+                                    onChange={(e) => setYAxisCeiling(e.target.value)}
+                                    placeholder="Max"
+                                    className="w-11 px-1 py-0.5 bg-slate-50 border border-slate-300 rounded-md font-bold text-slate-800 text-center focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white text-[10px]"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Reset Scale & Range Button */}
                               <button
-                                onClick={() => setPeerHealthScaleMode('linear')}
-                                disabled={peerHealthScaleMode === 'linear'}
+                                onClick={() => {
+                                  setPeerHealthScaleMode('linear');
+                                  setYAxisFloor('15');
+                                  setYAxisCeiling('55');
+                                }}
+                                disabled={peerHealthScaleMode === 'linear' && yAxisFloor === '15' && yAxisCeiling === '55'}
                                 className={`px-2 py-0.5 text-[10px] font-extrabold rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
-                                  peerHealthScaleMode === 'linear'
+                                  peerHealthScaleMode === 'linear' && yAxisFloor === '15' && yAxisCeiling === '55'
                                     ? 'text-slate-400 opacity-50 cursor-not-allowed bg-transparent'
                                     : 'text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 shadow-2xs'
                                 }`}
-                                title="Reset Y-Axis scale to default Linear mode"
+                                title="Reset Y-Axis scale and range boundaries to defaults (Linear, Floor: 15, Ceiling: 55)"
                               >
                                 <RotateCcw className="w-3 h-3" />
                                 <span>Reset Scale</span>
@@ -3859,15 +3889,24 @@ services:
                                 axisLine={{ stroke: '#cbd5e1' }}
                                 tickLine={false}
                               />
-                              <YAxis
-                                key={`yaxis-${peerHealthScaleMode}`}
-                                scale={peerHealthScaleMode === 'log' ? 'log' : 'auto'}
-                                domain={peerHealthScaleMode === 'log' ? [10, 60] : [15, 55]}
-                                tick={{ fontSize: 10, fill: '#64748b' }}
-                                axisLine={{ stroke: '#cbd5e1' }}
-                                tickLine={false}
-                                tickFormatter={(val) => Math.round(val).toString()}
-                              />
+                              {(() => {
+                                const parsedFloor = yAxisFloor !== '' && !isNaN(Number(yAxisFloor)) ? Number(yAxisFloor) : (peerHealthScaleMode === 'log' ? 10 : 15);
+                                const parsedCeiling = yAxisCeiling !== '' && !isNaN(Number(yAxisCeiling)) ? Number(yAxisCeiling) : (peerHealthScaleMode === 'log' ? 60 : 55);
+                                const safeFloor = peerHealthScaleMode === 'log' ? Math.max(1, parsedFloor) : parsedFloor;
+                                const safeCeiling = parsedCeiling > safeFloor ? parsedCeiling : safeFloor + 10;
+
+                                return (
+                                  <YAxis
+                                    key={`yaxis-${peerHealthScaleMode}-${safeFloor}-${safeCeiling}`}
+                                    scale={peerHealthScaleMode === 'log' ? 'log' : 'auto'}
+                                    domain={[safeFloor, safeCeiling]}
+                                    tick={{ fontSize: 10, fill: '#64748b' }}
+                                    axisLine={{ stroke: '#cbd5e1' }}
+                                    tickLine={false}
+                                    tickFormatter={(val) => Math.round(val).toString()}
+                                  />
+                                );
+                              })()}
                               <Tooltip
                                 cursor={({ points, width, height }) => {
                                   if (!points || !points[0]) return null;
